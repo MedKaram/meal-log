@@ -117,6 +117,28 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
 .editfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px}
 .editfoot .kcal{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:700;font-size:1.3rem;font-variant-numeric:tabular-nums}
 .editfoot .btns{display:flex;gap:8px}
+.macros{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:.95rem;margin-bottom:26px}
+.macros b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.linkbtn{background:none;border:0;padding:6px 0 0;color:var(--herb);font-weight:600;font-size:.88rem}
+.pmac{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.usdabar{display:flex;gap:8px;margin-bottom:10px}
+.usdabar input{flex:1}
+.usdares{display:grid;gap:8px;margin-bottom:12px;max-height:320px;overflow:auto}
+.usdares:empty{display:none}
+.res{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg)}
+.res .rn{font-weight:500;font-size:.92rem}
+.res .rm{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.res .rb{display:flex;gap:8px;margin-top:8px}
+.res .rb button{border-radius:999px;padding:5px 12px;font-size:.82rem;font-weight:600;border:1px solid var(--line);background:var(--surface);min-height:34px}
+.res .rb button.raw.sug{border-color:var(--raw);color:var(--raw)}
+.res .rb button.cooked.sug{border-color:var(--cooked);color:var(--cooked)}
+.res .rb button.on{background:var(--herb);color:var(--herb-ink);border-color:var(--herb)}
+.nutgrid{display:grid;grid-template-columns:minmax(78px,1.2fr) repeat(4,minmax(0,1fr));gap:6px;align-items:center}
+.nutgrid input{min-height:40px;padding:8px;text-align:right;font-variant-numeric:tabular-nums}
+.nh{font-size:.78rem;color:var(--muted);text-align:right;padding-right:4px}
+.nl{font-size:.85rem;font-weight:500}
+.nl small{color:var(--muted);font-weight:400}
+.editfoot .em2{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -148,13 +170,14 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
   </div>
 
   <div class="readout" aria-live="polite"><span class="num" id="total">0</span><span class="unit">kcal</span></div>
-  <div class="split"><span class="r">Weighed raw <b id="tRaw">0</b></span><span class="c">Weighed cooked <b id="tCooked">0</b></span><span>Other <b id="tAsis">0</b></span></div>
+  <div class="macros"><span>Protein <b id="tP">0 g</b></span><span>Carbs <b id="tC">0 g</b></span><span>Fat <b id="tF">0 g</b></span></div>
 
   <section class="add" aria-labelledby="addH">
     <h2 id="addH">Log a food</h2>
     <label class="f" for="food">Food</label>
     <input type="text" id="food" list="foodlist" placeholder="e.g. White rice, chicken breast" autocomplete="off">
     <datalist id="foodlist"></datalist>
+    <button type="button" class="linkbtn" id="lookup" hidden>Look up exact values on USDA</button>
 
     <div class="seg" role="group" aria-label="State when weighed">
       <button type="button" data-s="raw" aria-pressed="true">Raw / dry</button>
@@ -170,19 +193,34 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
     </div>
 
     <div class="custom" id="custom">
-      <p id="customMsg">This food isn’t in the list yet. Add its calories per 100 g (check the package label or fdc.nal.usda.gov), then save it.</p>
-      <div class="row">
-        <div><label class="f" for="cRaw">kcal / 100 g raw or as is</label><input type="number" id="cRaw" inputmode="decimal" min="0"></div>
-        <div><label class="f" for="cCooked">kcal / 100 g cooked (optional)</label><input type="number" id="cCooked" inputmode="decimal" min="0"></div>
+      <p id="customMsg"></p>
+      <div class="usdabar">
+        <input type="text" id="usdaQ" aria-label="USDA search terms" autocomplete="off">
+        <button type="button" class="ghost" id="usdaBtn">Search USDA</button>
       </div>
+      <div id="usdaRes" class="usdares" aria-live="polite"></div>
+      <div class="nutgrid" role="group" aria-label="Values per 100 g">
+        <span></span><span class="nh">kcal</span><span class="nh">Protein</span><span class="nh">Carbs</span><span class="nh">Fat</span>
+        <span class="nl">Raw / as is</span>
+        <input type="number" id="rK" inputmode="decimal" min="0" aria-label="Raw kcal per 100 g">
+        <input type="number" id="rP" inputmode="decimal" min="0" aria-label="Raw protein g per 100 g">
+        <input type="number" id="rC" inputmode="decimal" min="0" aria-label="Raw carbs g per 100 g">
+        <input type="number" id="rF" inputmode="decimal" min="0" aria-label="Raw fat g per 100 g">
+        <span class="nl">Cooked <small>(optional)</small></span>
+        <input type="number" id="cK" inputmode="decimal" min="0" aria-label="Cooked kcal per 100 g">
+        <input type="number" id="cP" inputmode="decimal" min="0" aria-label="Cooked protein g per 100 g">
+        <input type="number" id="cC" inputmode="decimal" min="0" aria-label="Cooked carbs g per 100 g">
+        <input type="number" id="cF" inputmode="decimal" min="0" aria-label="Cooked fat g per 100 g">
+      </div>
+      <p class="hint" id="srcNote">All values are per 100 g. Protein, carbs and fat are in grams.</p>
       <div class="actions">
-                <button type="button" class="ghost" id="saveFood">Save food</button>
+        <button type="button" class="primary" id="saveFood">Save food</button>
+        <button type="button" class="ghost" id="cancelCustom" hidden>Cancel</button>
       </div>
-      <p class="hint" id="estNote"></p>
     </div>
 
     <div class="preview">
-      <span class="kcal" id="preview">— kcal</span>
+      <div><span class="kcal" id="preview">— kcal</span><div class="pmac" id="previewMac"></div></div>
       <button type="button" class="primary" id="addBtn" disabled>Add to log</button>
     </div>
     <div class="err" id="err" role="alert"></div>
@@ -193,48 +231,83 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
 </main>
 
 <script>
-// kcal per 100 g: [name, raw/dry, cooked, cooking method]. Approximate USDA reference values.
-const BASE = [
-  ["White rice", 365, 130, "boiled"], ["Brown rice", 370, 123, "boiled"], ["Pasta", 371, 158, "boiled"],
-  ["Quinoa", 368, 120, "boiled"], ["Couscous", 376, 112, "boiled"], ["Pearl barley", 352, 123, "boiled"],
-  ["Rolled oats", 379, 71, "cooked in water"], ["Lentils", 352, 116, "boiled"], ["Chickpeas", 378, 164, "boiled"],
-  ["Black beans", 341, 132, "boiled"], ["Potato", 77, 87, "boiled"], ["Sweet potato", 86, 90, "baked"],
-  ["Chicken breast (skinless)", 120, 165, "roasted"], ["Chicken thigh (skinless)", 121, 176, "roasted"],
-  ["Turkey breast", 114, 147, "roasted"], ["Ground beef 85% lean", 215, 250, "pan-browned"],
-  ["Pork tenderloin", 120, 143, "roasted"], ["Bacon", 417, 541, "pan-fried"], ["Salmon", 142, 182, "baked"],
-  ["Cod", 82, 105, "baked"], ["Shrimp", 85, 99, "boiled"], ["Egg", 143, 155, "hard-boiled"],
-  ["Broccoli", 34, 35, "boiled"], ["Spinach", 23, 23, "boiled"], ["Carrot", 41, 35, "boiled"],
-  ["Onion", 40, 44, "cooked"], ["Mushrooms", 22, 28, "cooked"], ["Zucchini", 17, 15, "cooked"],
-  ["Bell pepper", 26, 28, "cooked"], ["Corn kernels", 86, 96, "boiled"], ["Green peas", 81, 84, "boiled"],
-  ["Firm tofu", 144, null, ""], ["Banana", 89, null, ""], ["Apple", 52, null, ""], ["Avocado", 160, null, ""],
-  ["Blueberries", 57, null, ""], ["Olive oil", 884, null, ""], ["Butter", 717, null, ""],
-  ["Cheddar cheese", 403, null, ""], ["Milk 2%", 50, null, ""], ["Greek yogurt, plain nonfat", 59, null, ""],
-  ["Bread, white", 266, null, ""], ["Bread, whole wheat", 252, null, ""], ["Almonds", 579, null, ""],
-  ["Peanut butter", 588, null, ""]
-].map(([name, raw, cooked, method]) => ({ name, raw, cooked, method, builtin: true }));
+// kcal and macros (g) per 100 g. Built-in values are approximate, USDA-style;
+// "Look up exact values on USDA" replaces them with official numbers.
+// [name, raw kcal, P, C, F, cooked kcal, P, C, F, method]  — foods eaten as is have no cooked part.
+const B = [
+  ["White rice", 365,7.1,80,0.7, 130,2.7,28.2,0.3, "boiled"],
+  ["Brown rice", 370,7.9,77.2,2.9, 123,2.7,25.6,1, "boiled"],
+  ["Pasta", 371,13,74.7,1.5, 158,5.8,30.9,0.9, "boiled"],
+  ["Quinoa", 368,14.1,64.2,6.1, 120,4.4,21.3,1.9, "boiled"],
+  ["Couscous", 376,12.8,77.4,0.6, 112,3.8,23.2,0.2, "boiled"],
+  ["Pearl barley", 352,9.9,77.7,1.2, 123,2.3,28.2,0.4, "boiled"],
+  ["Rolled oats", 379,13.2,67.7,6.5, 71,2.5,12,1.5, "cooked in water"],
+  ["Lentils", 352,24.6,63.4,1.1, 116,9,20.1,0.4, "boiled"],
+  ["Chickpeas", 378,20.5,62.9,6, 164,8.9,27.4,2.6, "boiled"],
+  ["Black beans", 341,21.6,62.4,1.4, 132,8.9,23.7,0.5, "boiled"],
+  ["Potato", 77,2,17.5,0.1, 87,1.9,20.1,0.1, "boiled"],
+  ["Sweet potato", 86,1.6,20.1,0.1, 90,2,20.7,0.2, "baked"],
+  ["Chicken breast (skinless)", 120,22.5,0,2.6, 165,31,0,3.6, "roasted"],
+  ["Chicken thigh (skinless)", 121,19.7,0,4.1, 179,24.8,0,8.2, "roasted"],
+  ["Turkey breast", 114,23.7,0,1.5, 147,30.1,0,2.1, "roasted"],
+  ["Ground beef 85% lean", 215,18.6,0,15, 250,25.9,0,15.4, "pan-browned"],
+  ["Pork tenderloin", 120,21,0,3.5, 143,26.2,0,3.5, "roasted"],
+  ["Bacon", 417,13,1.4,40, 541,37,1.4,42, "pan-fried"],
+  ["Salmon", 142,19.8,0,6.3, 182,25.4,0,8.1, "baked"],
+  ["Cod", 82,17.8,0,0.7, 105,22.8,0,0.9, "baked"],
+  ["Shrimp", 85,20.1,0,0.5, 99,24,0.2,0.3, "boiled"],
+  ["Egg", 143,12.6,0.7,9.5, 155,12.6,1.1,10.6, "hard-boiled"],
+  ["Broccoli", 34,2.8,6.6,0.4, 35,2.4,7.2,0.4, "boiled"],
+  ["Spinach", 23,2.9,3.6,0.4, 23,3,3.8,0.3, "boiled"],
+  ["Carrot", 41,0.9,9.6,0.2, 35,0.8,8.2,0.2, "boiled"],
+  ["Onion", 40,1.1,9.3,0.1, 44,1.4,10.2,0.2, "cooked"],
+  ["Mushrooms", 22,3.1,3.3,0.3, 28,2.2,5.3,0.5, "cooked"],
+  ["Zucchini", 17,1.2,3.1,0.3, 15,1.1,2.7,0.4, "cooked"],
+  ["Bell pepper, red", 31,1,6,0.3, 28,0.9,6.6,0.2, "cooked"],
+  ["Corn kernels", 86,3.3,18.7,1.4, 96,3.4,21,1.5, "boiled"],
+  ["Green peas", 81,5.4,14.5,0.4, 84,5.4,15.6,0.2, "boiled"],
+  ["Firm tofu", 144,17.3,2.8,8.7], ["Banana", 89,1.1,22.8,0.3], ["Apple", 52,0.3,13.8,0.2],
+  ["Avocado", 160,2,8.5,14.7], ["Blueberries", 57,0.7,14.5,0.3], ["Olive oil", 884,0,0,100],
+  ["Butter", 717,0.9,0.1,81.1], ["Cheddar cheese", 403,24.9,1.3,33.1], ["Milk 2%", 50,3.3,4.8,2],
+  ["Greek yogurt, plain nonfat", 59,10.2,3.6,0.4], ["Bread, white", 266,7.6,50.6,3.3],
+  ["Bread, whole wheat", 252,12.4,42.7,3.5], ["Almonds", 579,21.2,21.6,49.9], ["Peanut butter", 588,25,20,50]
+];
+const BASE = B.map(r => ({ name:r[0], raw:r[1], rp:r[2], rc:r[3], rf:r[4],
+  cooked:r[5] ?? null, cp:r[6] ?? null, cc:r[7] ?? null, cf:r[8] ?? null, method:r[9] || "", builtin:true }));
 
-
-let entries = [], custom = [], loading = false;
-let state = "raw", day = todayStr();
+let entries = [], custom = [];
+let state = "raw", day = todayStr(), forceCustom = false;
 let pw = ""; try { pw = localStorage.getItem("meal-log-pw") || ""; } catch(e){}
 
 function todayStr(d = new Date()){ const z = n => String(n).padStart(2,"0"); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function shift(s, n){ const [y,m,d] = s.split("-").map(Number); return todayStr(new Date(y, m-1, d+n)); }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 const $ = id => document.getElementById(id);
-const allFoods = () => [...BASE, ...custom];
+const r1 = x => Math.round(x * 10) / 10;
+// your saved foods come first, so a USDA lookup replaces a built-in value of the same name
+function allFoods(){ const mine = new Set(custom.map(f => f.name.toLowerCase())); return [...custom, ...BASE.filter(b => !mine.has(b.name.toLowerCase()))]; }
 const findFood = n => { const q = n.trim().toLowerCase(); return q ? allFoods().find(f => f.name.toLowerCase() === q) : null; };
+function per100(f, s){ return s === "cooked" ? f.cooked : f.raw; }
+function macros(f, s){
+  const m = s === "cooked" ? [f.cp, f.cc, f.cf] : [f.rp, f.rc, f.rf];
+  return m.some(v => v == null) ? null : { p:m[0], c:m[1], f:m[2] };
+}
+function calc(f, s, g){
+  const k = per100(f, s), m = macros(f, s);
+  return { kcal: Math.round(g * k / 100), protein: m ? r1(g*m.p/100) : null, carbs: m ? r1(g*m.c/100) : null, fat: m ? r1(g*m.f/100) : null };
+}
+const macText = o => o.protein == null ? "" : `P ${Math.round(o.protein)} g · C ${Math.round(o.carbs)} g · F ${Math.round(o.fat)} g`;
 
 // ---------- server ----------
 async function api(method, path, body){
   const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-app-password": pw },
                                 body: body ? JSON.stringify(body) : undefined });
   if (r.status === 401){ showLogin(pw ? "Wrong password." : ""); throw new Error("auth"); }
-  if (!r.ok) throw new Error("http " + r.status);
+  if (!r.ok){ const e = new Error("http"); e.status = r.status; throw e; }
   return r.json();
 }
 async function load(){
-  const want = day; loading = true;
+  const want = day;
   $("sync").textContent = "Loading… (the first load of the day can take a few seconds)";
   try {
     const d = await api("GET", "/api/data?date=" + want);
@@ -244,7 +317,7 @@ async function load(){
     refreshList(); syncStateButtons(); updatePreview(); render();
   } catch(e){
     if (e.message !== "auth") $("sync").textContent = "Couldn’t reach the database. Refresh to try again.";
-  } finally { loading = false; }
+  }
 }
 function showLogin(msg){ $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
 $("loginForm").addEventListener("submit", ev => {
@@ -270,24 +343,32 @@ function syncStateButtons(){
   if (!f){ ["raw","cooked","asis"].forEach(s => btn(s).disabled = false); $("stateHint").textContent = "Pick the state the food was in when you weighed it."; return; }
   const hasCooked = f.cooked != null;
   btn("raw").disabled = !hasCooked; btn("cooked").disabled = !hasCooked; btn("asis").disabled = hasCooked;
+  const src = f.builtin ? " (approximate)" : f.source ? " (USDA)" : "";
   if (hasCooked){
     if (state === "asis") setState("raw");
-    $("stateHint").textContent = `Raw: ${f.raw} kcal/100 g · Cooked (${f.method || "cooked"}): ${f.cooked} kcal/100 g`;
+    $("stateHint").textContent = `Raw: ${f.raw} kcal/100 g · Cooked (${f.method || "cooked"}): ${f.cooked} kcal/100 g${src}`;
   } else {
     setState("asis");
-    $("stateHint").textContent = `${f.raw} kcal per 100 g, eaten as is.`;
+    $("stateHint").textContent = `${f.raw} kcal per 100 g, eaten as is${src}.`;
   }
 }
-function per100(f, s){ return s === "cooked" ? f.cooked : f.raw; }
 function updatePreview(){
-  const f = findFood($("food").value);
-  const g = parseFloat($("grams").value);
   const name = $("food").value.trim();
-  $("custom").classList.toggle("show", !!name && !f);
+  const f = findFood(name);
+  const g = parseFloat($("grams").value);
+  const showCustom = !!name && (!f || forceCustom);
+  $("custom").classList.toggle("show", showCustom);
+  $("lookup").hidden = !f || forceCustom;
+  $("cancelCustom").hidden = !forceCustom;
+  $("customMsg").textContent = f
+    ? `Replace the values for “${f.name}” with USDA data or your own, then save.`
+    : `“${name}” isn’t in your list yet. Search USDA and pick a raw and/or cooked match, or type the values, then save.`;
   if (f && g > 0 && per100(f, state) != null){
-    $("preview").textContent = Math.round(g * per100(f, state) / 100) + " kcal";
+    const o = calc(f, state, g);
+    $("preview").textContent = o.kcal + " kcal";
+    $("previewMac").textContent = macText(o);
     $("addBtn").disabled = false;
-  } else { $("preview").textContent = "— kcal"; $("addBtn").disabled = true; }
+  } else { $("preview").textContent = "— kcal"; $("previewMac").textContent = ""; $("addBtn").disabled = true; }
 }
 function refreshList(){
   $("foodlist").innerHTML = "";
@@ -295,15 +376,17 @@ function refreshList(){
 }
 function showErr(m){ $("err").textContent = m; if (m) setTimeout(() => { if ($("err").textContent === m) $("err").textContent = ""; }, 6000); }
 
-$("food").addEventListener("input", () => { syncStateButtons(); updatePreview(); });
+$("food").addEventListener("input", () => {
+  forceCustom = false; clearUsda(); $("usdaQ").value = $("food").value.trim();
+  syncStateButtons(); updatePreview();
+});
 $("grams").addEventListener("input", updatePreview);
 document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setState(b.dataset.s)));
 
 $("addBtn").addEventListener("click", async () => {
   const f = findFood($("food").value); const g = parseFloat($("grams").value);
   if (!f || !(g > 0)) return;
-  const e = { id: uid(), date: day, meal: $("meal").value, food: f.name, state, grams: g,
-              kcal: Math.round(g * per100(f, state) / 100), createdAt: Date.now() };
+  const e = { id: uid(), date: day, meal: $("meal").value, food: f.name, state, grams: g, ...calc(f, state, g), createdAt: Date.now() };
   entries.push(e);
   $("food").value = ""; $("grams").value = ""; syncStateButtons(); updatePreview(); render();
   $("food").focus();
@@ -311,16 +394,92 @@ $("addBtn").addEventListener("click", async () => {
   catch(err){ if (err.message !== "auth"){ entries = entries.filter(x => x.id !== e.id); render(); showErr(`Couldn’t save “${e.food}”. Try adding it again.`); } }
 });
 
-$("saveFood").addEventListener("click", async () => {
-  const name = $("food").value.trim(); const r = parseFloat($("cRaw").value); const c = parseFloat($("cCooked").value);
-  if (!name) return;
-  if ($("cRaw").value === "" || !(r >= 0)){ showErr("Enter calories per 100 g for the raw or as-is food."); return; }
-  const f = { type: "food", id: uid(), name, raw: r, cooked: $("cCooked").value !== "" && c >= 0 ? c : null, method: "" };
+// ---------- custom foods + USDA ----------
+const SLOT = { raw: ["rK","rP","rC","rF"], cooked: ["cK","cP","cC","cF"] };
+let src = { raw: null, cooked: null }, cookMethod = "";
+const COOK_RE = /\b(cooked|boiled|roasted|baked|grilled|fried|pan-fried|pan-browned|braised|broiled|steamed|stewed|simmered|poached|microwaved)\b/i;
+const RAW_RE = /\b(raw|dry|uncooked|unprepared)\b/i;
+
+function fillSlot(slot, v){ SLOT[slot].forEach((id, i) => { $(id).value = v[i] == null ? "" : v[i]; }); }
+function clearUsda(){ $("usdaRes").innerHTML = ""; src = { raw:null, cooked:null }; cookMethod = ""; showSources(); }
+function showSources(){
+  const parts = [];
+  if (src.raw) parts.push(`Raw: USDA – ${src.raw.name}`);
+  if (src.cooked) parts.push(`Cooked: USDA – ${src.cooked.name}`);
+  $("srcNote").textContent = parts.length ? parts.join(" · ") : "All values are per 100 g. Protein, carbs and fat are in grams.";
+}
+$("lookup").addEventListener("click", () => {
+  const f = findFood($("food").value); if (!f) return;
+  forceCustom = true;
+  fillSlot("raw", [f.raw, f.rp, f.rc, f.rf]);
+  fillSlot("cooked", [f.cooked, f.cp, f.cc, f.cf]);
+  cookMethod = f.method || "";
+  $("usdaQ").value = f.name.replace(/\(.*?\)/g, "").trim();
+  updatePreview(); usdaSearch();
+});
+$("cancelCustom").addEventListener("click", () => { forceCustom = false; clearUsda(); updatePreview(); });
+$("usdaBtn").addEventListener("click", usdaSearch);
+$("usdaQ").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); usdaSearch(); } });
+
+async function usdaSearch(){
+  const q = ($("usdaQ").value || $("food").value).trim(); if (!q) return;
+  const box = $("usdaRes"); box.innerHTML = '<p class="hint">Searching USDA…</p>';
   try {
-    await api("POST", "/api/data", f);
-    $("cRaw").value = ""; $("cCooked").value = "";
+    const d = await api("GET", "/api/usda?q=" + encodeURIComponent(q));
+    box.innerHTML = "";
+    if (!d.results.length){ box.innerHTML = '<p class="hint">No matches. Try simpler words, like “chicken breast”.</p>'; return; }
+    d.results.forEach(r => {
+      const el = document.createElement("div"); el.className = "res";
+      const n = document.createElement("div"); n.className = "rn"; n.textContent = r.name;
+      const m = document.createElement("div"); m.className = "rm";
+      m.textContent = `${r.kcal} kcal · P ${r.p ?? "–"} · C ${r.c ?? "–"} · F ${r.f ?? "–"} per 100 g`;
+      const bar = document.createElement("div"); bar.className = "rb";
+      const guess = COOK_RE.test(r.name) ? "cooked" : RAW_RE.test(r.name) ? "raw" : "";
+      ["raw", "cooked"].forEach(slot => {
+        const b = document.createElement("button"); b.type = "button";
+        b.className = slot + (guess === slot ? " sug" : "");
+        b.textContent = slot === "raw" ? "Use as raw / as is" : "Use as cooked";
+        b.addEventListener("click", () => {
+          fillSlot(slot, [r.kcal, r.p, r.c, r.f]);
+          src[slot] = r;
+          if (slot === "cooked"){ const mm = r.name.match(COOK_RE); cookMethod = mm ? mm[1].toLowerCase() : "cooked"; }
+          box.querySelectorAll(`button.${slot}`).forEach(x => x.classList.remove("on"));
+          b.classList.add("on"); showSources();
+        });
+        bar.appendChild(b);
+      });
+      el.append(n, m, bar); box.appendChild(el);
+    });
+  } catch(e){
+    if (e.message === "auth") return;
+    box.innerHTML = "";
+    const p = document.createElement("p"); p.className = "hint";
+    p.textContent = e.status === 501 ? "USDA search isn’t set up yet: add USDA_API_KEY in Vercel and redeploy."
+      : e.status === 429 ? "USDA’s limit was reached. Wait a bit and try again."
+      : "Couldn’t reach USDA. Try again in a moment.";
+    box.appendChild(p);
+  }
+}
+
+$("saveFood").addEventListener("click", async () => {
+  const name = $("food").value.trim(); if (!name) return;
+  const num = id => { const v = $(id).value.trim(); if (v === "") return null; const n = parseFloat(v); return n >= 0 ? n : NaN; };
+  const [rk, rp, rc, rf, ck, cp, cc, cf] = [...SLOT.raw, ...SLOT.cooked].map(num);
+  if (rk == null || Number.isNaN(rk)){ showErr("Enter at least the raw or as-is kcal per 100 g."); return; }
+  if ([rp, rc, rf, ck, cp, cc, cf].some(Number.isNaN)){ showErr("Use numbers of 0 or more."); return; }
+  const hasCooked = ck != null;
+  const ids = [src.raw?.fdcId, hasCooked ? src.cooked?.fdcId : null].filter(Boolean);
+  const body = { type: "food", id: uid(), name, raw: rk, rp, rc, rf,
+    cooked: hasCooked ? ck : null, cp: hasCooked ? cp : null, cc: hasCooked ? cc : null, cf: hasCooked ? cf : null,
+    method: hasCooked ? (cookMethod || "cooked") : "", source: ids.length ? "USDA " + ids.join(", ") : "" };
+  const btn = $("saveFood"); btn.disabled = true;
+  try {
+    await api("POST", "/api/data", body);
+    [...SLOT.raw, ...SLOT.cooked].forEach(id => $(id).value = "");
+    forceCustom = false; clearUsda();
     await load();
   } catch(err){ if (err.message !== "auth") showErr("Couldn’t save that food. Try again."); }
+  finally { btn.disabled = false; }
 });
 
 function goTo(d){ day = d; editingId = null; entries = []; render(); load(); }
@@ -347,10 +506,12 @@ applyTheme();
 
 // ---------- inline edit ----------
 let editingId = null;
-function editKcal(e, grams, st){
+function editCalc(e, grams, st){
   const f = findFood(e.food);
-  if (f && per100(f, st) != null) return Math.round(grams * per100(f, st) / 100);
-  return e.grams > 0 ? Math.round(e.kcal / e.grams * grams) : e.kcal;  // food no longer in list: keep same kcal per gram
+  if (f && per100(f, st) != null) return calc(f, st, grams);
+  const k = e.grams > 0 ? grams / e.grams : 1;   // food no longer in list: scale what was logged
+  return { kcal: Math.round(e.kcal * k), protein: e.protein == null ? null : r1(e.protein * k),
+           carbs: e.carbs == null ? null : r1(e.carbs * k), fat: e.fat == null ? null : r1(e.fat * k) };
 }
 function editForm(e){
   const li = document.createElement("li"); li.className = "item editing";
@@ -363,12 +524,16 @@ function editForm(e){
       <div><label class="f">State</label><select class="es"></select></div>
       <div><label class="f">Meal</label><select class="em"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snacks</option></select></div>
     </div>
-    <div class="editfoot"><span class="kcal"></span><div class="btns"><button type="button" class="ghost ec">Cancel</button><button type="button" class="primary esv">Save</button></div></div>`;
+    <div class="editfoot"><div><span class="kcal"></span><div class="em2"></div></div><div class="btns"><button type="button" class="ghost ec">Cancel</button><button type="button" class="primary esv">Save</button></div></div>`;
   li.querySelector(".name").textContent = e.food;
-  const g = li.querySelector(".eg"), st = li.querySelector(".es"), m = li.querySelector(".em"), k = li.querySelector(".kcal"), sv = li.querySelector(".esv");
+  const g = li.querySelector(".eg"), st = li.querySelector(".es"), m = li.querySelector(".em"),
+        k = li.querySelector(".kcal"), mac = li.querySelector(".em2"), sv = li.querySelector(".esv");
   states.forEach(x => { const o = document.createElement("option"); o.value = x; o.textContent = label[x]; st.appendChild(o); });
-  g.value = e.grams; st.value = e.state; m.value = e.meal; st.disabled = states.length < 2;
-  const upd = () => { const v = parseFloat(g.value); const ok = v > 0; sv.disabled = !ok; k.textContent = ok ? editKcal(e, v, st.value) + " kcal" : "— kcal"; };
+  if (!states.includes(e.state)){ const o = document.createElement("option"); o.value = e.state; o.textContent = label[e.state]; st.prepend(o); }
+  g.value = e.grams; st.value = e.state; m.value = e.meal; st.disabled = st.options.length < 2;
+  const upd = () => { const v = parseFloat(g.value); const ok = v > 0; sv.disabled = !ok;
+    const o = ok ? editCalc(e, v, st.value) : null;
+    k.textContent = o ? o.kcal + " kcal" : "— kcal"; mac.textContent = o ? macText(o) : ""; };
   g.addEventListener("input", upd); st.addEventListener("change", upd); upd();
   li.querySelector(".ec").addEventListener("click", () => { editingId = null; render(); });
   sv.addEventListener("click", () => saveEdit(e, parseFloat(g.value), st.value, m.value));
@@ -378,9 +543,10 @@ function editForm(e){
 }
 async function saveEdit(e, grams, st, meal){
   const before = { ...e };
-  Object.assign(e, { grams, state: st, meal, kcal: editKcal(before, grams, st) });
+  Object.assign(e, { grams, state: st, meal, ...editCalc(before, grams, st) });
   editingId = null; render();
-  try { await api("PATCH", "/api/data", { id: e.id, grams: e.grams, state: e.state, meal: e.meal, kcal: e.kcal }); }
+  try { await api("PATCH", "/api/data", { id: e.id, grams: e.grams, state: e.state, meal: e.meal,
+                                          kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }); }
   catch(err){ if (err.message !== "auth"){ Object.assign(e, before); render(); showErr(`Couldn’t save changes to “${e.food}”. Try again.`); } }
 }
 
@@ -395,9 +561,11 @@ function render(){
   $("datePick").max = t; $("datePick").value = day;
 
   const list = entries.filter(e => e.date === day).sort((a,b) => a.createdAt - b.createdAt);
-  const sum = s => list.filter(e => !s || e.state === s).reduce((a,e) => a + e.kcal, 0);
-  $("total").textContent = sum().toLocaleString();
-  $("tRaw").textContent = sum("raw"); $("tCooked").textContent = sum("cooked"); $("tAsis").textContent = sum("asis");
+  const sum = k => list.reduce((a,e) => a + (e[k] || 0), 0);
+  $("total").textContent = sum("kcal").toLocaleString();
+  $("tP").textContent = Math.round(sum("protein")) + " g";
+  $("tC").textContent = Math.round(sum("carbs")) + " g";
+  $("tF").textContent = Math.round(sum("fat")) + " g";
 
   const log = $("log"); log.innerHTML = "";
   if (!list.length){
@@ -421,24 +589,24 @@ function render(){
       const meta = document.createElement("div"); meta.className = "meta";
       const tag = document.createElement("span"); tag.className = "tag " + e.state;
       tag.textContent = e.state === "raw" ? "raw" : e.state === "cooked" ? "cooked" : "as is";
-      meta.append(tag, document.createTextNode(e.grams + " g"));
+      const mt = macText(e);
+      meta.append(tag, document.createTextNode(e.grams + " g" + (mt ? " · " + mt : "")));
       left.append(nm, meta);
       const k = document.createElement("span"); k.className = "k"; k.textContent = e.kcal + " kcal";
-      const del = document.createElement("button"); del.className = "del"; del.textContent = "×";
-      del.setAttribute("aria-label", "Delete " + e.food);
-      del.addEventListener("click", () => removeEntry(e));
       const ed = document.createElement("button"); ed.className = "edit"; ed.textContent = "✎";
       ed.setAttribute("aria-label", "Edit " + e.food);
       ed.addEventListener("click", () => { editingId = e.id; render(); });
+      const del = document.createElement("button"); del.className = "del"; del.textContent = "×";
+      del.setAttribute("aria-label", "Delete " + e.food);
+      del.addEventListener("click", () => removeEntry(e));
       li.append(left, k, ed, del); ul.appendChild(li);
     });
     sec.appendChild(ul); log.appendChild(sec);
   });
 }
 
-
-const h = new Date().getHours();
-$("meal").value = h < 11 ? "Breakfast" : h < 15 ? "Lunch" : h < 21 ? "Dinner" : "Snacks";
+const hr = new Date().getHours();
+$("meal").value = hr < 11 ? "Breakfast" : hr < 15 ? "Lunch" : hr < 21 ? "Dinner" : "Snacks";
 refreshList(); render();
 if (pw) load(); else showLogin("");
 </script>
