@@ -31,6 +31,7 @@ const isText = (s, max) => typeof s === 'string' && s.trim().length > 0 && s.len
 const isNum = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < 100000;
 const optNum = n => n === null || n === undefined || isNum(n);
 const opt = n => (n === null || n === undefined ? null : n);
+const optTime = n => n === null || n === undefined || (typeof n === 'number' && Number.isFinite(n) && n > 0 && n < 1e14);
 
 
 export default async function handler(req, res) {
@@ -59,12 +60,14 @@ export default async function handler(req, res) {
       if (b.type === 'entry') {
         if (!isText(b.id, 64) || !isDate(b.date) || !MEALS.includes(b.meal) || !isText(b.food, 200) ||
             !STATES.includes(b.state) || !isNum(b.grams) || !isNum(b.kcal) ||
-            !optNum(b.protein) || !optNum(b.carbs) || !optNum(b.fat)) {
+            !optNum(b.protein) || !optNum(b.carbs) || !optNum(b.fat) || !optTime(b.createdAt)) {
           return res.status(400).json({ error: 'bad entry' });
         }
-        await sql`INSERT INTO entries (id, date, meal, food, state, grams, kcal, protein, carbs, fat)
+        // createdAt (ms) is optional; "Undo" after a delete sends the original one so the entry keeps its place
+        await sql`INSERT INTO entries (id, date, meal, food, state, grams, kcal, protein, carbs, fat, created_at)
                   VALUES (${b.id}, ${b.date}, ${b.meal}, ${b.food.trim()}, ${b.state}, ${b.grams}, ${Math.round(b.kcal)},
-                          ${opt(b.protein)}, ${opt(b.carbs)}, ${opt(b.fat)})
+                          ${opt(b.protein)}, ${opt(b.carbs)}, ${opt(b.fat)},
+                          COALESCE(to_timestamp(${opt(b.createdAt)}::float8 / 1000), now()))
                   ON CONFLICT (id) DO NOTHING`;
         return res.status(201).json({ ok: true });
       }
@@ -90,6 +93,19 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const b = req.body || {};
+      if (b.type === 'food') {   // rename a saved food; past entries with the old name follow it
+        if (!isText(b.id, 64) || !isText(b.name, 200)) return res.status(400).json({ error: 'bad food' });
+        const name = b.name.trim();
+        const [cur] = await sql`SELECT name FROM foods WHERE id = ${b.id}`;
+        if (!cur) return res.status(404).json({ error: 'not found' });
+        const clash = await sql`SELECT 1 FROM foods WHERE lower(name) = lower(${name}) AND id <> ${b.id}`;
+        if (clash.length) return res.status(409).json({ error: 'name taken' });
+        await sql.transaction([
+          sql`UPDATE foods SET name = ${name} WHERE id = ${b.id}`,
+          sql`UPDATE entries SET food = ${name} WHERE food = ${cur.name}`
+        ]);
+        return res.status(200).json({ ok: true });
+      }
       if (!isText(b.id, 64) || !MEALS.includes(b.meal) || !STATES.includes(b.state) || !isNum(b.grams) || !isNum(b.kcal) ||
           !optNum(b.protein) || !optNum(b.carbs) || !optNum(b.fat)) {
         return res.status(400).json({ error: 'bad edit' });

@@ -148,6 +148,28 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
 .nl{font-size:.85rem;font-weight:500}
 .nl small{color:var(--muted);font-weight:400}
 .editfoot .em2{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.topbtns{display:flex;gap:8px}
+.textbtn{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:inherit;padding:4px 6px;margin-left:6px;min-height:32px}
+.ghost.danger{border-color:var(--danger);color:var(--danger)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:15;
+  display:flex;align-items:center;gap:14px;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);
+  border-radius:12px;padding:10px 10px 10px 16px;box-shadow:0 6px 24px rgb(0 0 0 / .25);font-size:.92rem}
+.toast[hidden]{display:none}
+.toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:6px 8px;min-height:36px}
+dialog{border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);padding:0;
+  width:min(560px,calc(100% - 32px));max-height:min(80vh,680px)}
+dialog::backdrop{background:rgb(0 0 0 / .45)}
+.dlg-in{padding:18px}
+.dlg-h{display:flex;justify-content:space-between;align-items:center}
+.dlg-h h2{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:500;font-size:1.15rem;margin:0}
+li.frow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+li.frow .name{font-weight:500}
+li.frow .meta{font-size:.85rem;color:var(--muted)}
+li.frow .fb{display:flex;gap:6px}
+li.frow .fb .ghost{min-height:36px;padding:6px 10px;font-size:.85rem}
+li.frow.editing{grid-template-columns:1fr}
+li.frow.editing .fb{justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -163,7 +185,10 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
 <main>
   <div class="top">
     <span class="brand">Meal log</span>
-    <button class="themebtn" id="theme" type="button">Theme: Auto</button>
+    <div class="topbtns">
+      <button class="themebtn" id="foodsBtn" type="button">Your foods</button>
+      <button class="themebtn" id="theme" type="button">Theme: Auto</button>
+    </div>
   </div>
   <div class="day">
     <button class="navbtn" id="prev" aria-label="Previous day">‹</button>
@@ -236,8 +261,17 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
   </section>
 
   <section class="log" id="log" aria-label="Logged foods"></section>
-  <p class="sync" id="sync">Loading…</p>
+  <p class="sync"><span id="sync">Loading…</span><button type="button" class="textbtn" id="signOut">Sign out</button></p>
 </main>
+<div class="toast" id="toast" role="status" hidden><span id="toastMsg"></span><button type="button" id="toastUndo">Undo</button></div>
+<dialog id="foodsDlg" aria-labelledby="foodsH">
+  <div class="dlg-in">
+    <div class="dlg-h"><h2 id="foodsH">Your foods</h2><button type="button" class="del" id="foodsClose" aria-label="Close">×</button></div>
+    <p class="hint">Foods you saved, values per 100 g. Renaming also renames past entries. Deleting a food keeps past entries as they are.</p>
+    <ul id="foodsList"></ul>
+    <div class="err" id="foodsErr" role="alert"></div>
+  </div>
+</dialog>
 
 <script>
 // kcal and macros (g) per 100 g. Built-in values are approximate, USDA-style;
@@ -332,7 +366,7 @@ async function load(){
     if (e.message !== "auth") $("sync").textContent = "Couldn’t reach the database. Refresh to try again.";
   }
 }
-function showLogin(msg){ $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
+function showLogin(msg){ if ($("foodsDlg").open) $("foodsDlg").close(); hideToast(); $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
 $("loginForm").addEventListener("submit", async ev => {
   ev.preventDefault();
   const btn = ev.target.querySelector("button"); btn.disabled = true; $("loginErr").textContent = "";
@@ -344,9 +378,35 @@ $("loginForm").addEventListener("submit", async ev => {
 });
 async function removeEntry(e){
   entries = entries.filter(x => x.id !== e.id); render();
-  try { await api("DELETE", `/api/data?type=entry&id=${encodeURIComponent(e.id)}`); }
-  catch(err){ if (err.message !== "auth"){ entries.push(e); render(); showErr("Couldn’t delete that entry. Try again."); } }
+  const del = api("DELETE", `/api/data?type=entry&id=${encodeURIComponent(e.id)}`);
+  toast(`Deleted “${e.food}”`, () => restoreEntry(e, del));
+  try { await del; }
+  catch(err){ hideToast(); if (err.message !== "auth"){ entries.push(e); render(); showErr("Couldn’t delete that entry. Try again."); } }
 }
+async function restoreEntry(e, del){
+  try { await del; } catch(err){ return; }   // the delete failed, so the entry was never removed
+  entries.push(e); render();
+  try { await api("POST", "/api/data", { type: "entry", ...e }); }
+  catch(err){ if (err.message !== "auth"){ entries = entries.filter(x => x.id !== e.id); render(); showErr(`Couldn’t restore “${e.food}”. Add it again.`); } }
+}
+
+// ---------- toast with undo ----------
+let toastTimer = null, toastUndo = null;
+function toast(msg, undo){
+  $("toastMsg").textContent = msg; toastUndo = undo || null; $("toastUndo").hidden = !undo;
+  $("toast").hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 7000);
+}
+function hideToast(){ $("toast").hidden = true; toastUndo = null; clearTimeout(toastTimer); }
+$("toastUndo").addEventListener("click", () => { const u = toastUndo; hideToast(); if (u) u(); });
+
+// ---------- sign out ----------
+$("signOut").addEventListener("click", async () => {
+  try { const r = await fetch("/api/login", { method: "DELETE", credentials: "same-origin" }); if (!r.ok) throw new Error(); }
+  catch(e){ showErr("Couldn’t sign out. Check your connection."); return; }
+  entries = []; custom = []; editingId = null;
+  refreshList(); syncStateButtons(); updatePreview(); render();
+  $("sync").textContent = ""; showLogin("");
+});
 
 // ---------- form ----------
 function setState(s){
@@ -408,7 +468,16 @@ $("addBtn").addEventListener("click", async () => {
   $("food").value = ""; $("grams").value = ""; syncStateButtons(); updatePreview(); render();
   $("food").focus();
   try { await api("POST", "/api/data", { type: "entry", ...e }); }
-  catch(err){ if (err.message !== "auth"){ entries = entries.filter(x => x.id !== e.id); render(); showErr(`Couldn’t save “${e.food}”. Try adding it again.`); } }
+  catch(err){
+    if (err.message === "auth") return;
+    entries = entries.filter(x => x.id !== e.id); render();
+    // put what was typed back, unless the form has been used again since
+    if (!$("food").value.trim() && !$("grams").value){
+      $("food").value = e.food; $("grams").value = e.grams; $("meal").value = e.meal;
+      syncStateButtons(); setState(e.state);
+    }
+    showErr(`Couldn’t save “${e.food}”. Check your connection and tap Add again.`);
+  }
 });
 
 // ---------- custom foods + USDA ----------
@@ -622,8 +691,98 @@ function render(){
   });
 }
 
-const hr = new Date().getHours();
-$("meal").value = hr < 11 ? "Breakfast" : hr < 15 ? "Lunch" : hr < 21 ? "Dinner" : "Snacks";
+// ---------- your foods (rename / delete) ----------
+function renderFoods(){
+  const ul = $("foodsList"); ul.innerHTML = ""; $("foodsErr").textContent = "";
+  if (!custom.length){
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = "You haven’t saved any foods yet. Type a new food name in “Log a food” to add one.";
+    ul.appendChild(p); return;
+  }
+  [...custom].sort((a,b) => a.name.localeCompare(b.name)).forEach(f => ul.appendChild(foodRow(f)));
+}
+function foodRow(f){
+  const li = document.createElement("li"); li.className = "frow";
+  const left = document.createElement("div");
+  const nm = document.createElement("div"); nm.className = "name"; nm.textContent = f.name;
+  const meta = document.createElement("div"); meta.className = "meta";
+  meta.textContent = (f.cooked != null ? `${f.raw} kcal raw · ${f.cooked} kcal cooked` : `${f.raw} kcal`) + (f.source ? ` · ${f.source}` : "");
+  left.append(nm, meta);
+  const fb = document.createElement("div"); fb.className = "fb";
+  const rn = document.createElement("button"); rn.type = "button"; rn.className = "ghost"; rn.textContent = "Rename";
+  rn.setAttribute("aria-label", "Rename " + f.name);
+  rn.addEventListener("click", () => li.replaceWith(renameRow(f)));
+  const dl = document.createElement("button"); dl.type = "button"; dl.className = "ghost"; dl.textContent = "Delete";
+  dl.setAttribute("aria-label", "Delete " + f.name);
+  let armTimer = null;
+  dl.addEventListener("click", async () => {
+    if (!dl.classList.contains("danger")){   // first tap arms, second tap deletes
+      dl.classList.add("danger"); dl.textContent = "Tap again to delete";
+      armTimer = setTimeout(() => { dl.classList.remove("danger"); dl.textContent = "Delete"; }, 3000);
+      return;
+    }
+    clearTimeout(armTimer); dl.disabled = true; rn.disabled = true;
+    try {
+      await api("DELETE", `/api/data?type=food&id=${encodeURIComponent(f.id)}`);
+      custom = custom.filter(x => x.id !== f.id);
+      refreshList(); syncStateButtons(); updatePreview(); renderFoods();
+    } catch(err){
+      if (err.message === "auth") return;
+      dl.disabled = false; rn.disabled = false; $("foodsErr").textContent = `Couldn’t delete “${f.name}”. Try again.`;
+    }
+  });
+  fb.append(rn, dl); li.append(left, fb);
+  return li;
+}
+function renameRow(f){
+  const li = document.createElement("li"); li.className = "frow editing";
+  const inp = document.createElement("input"); inp.type = "text"; inp.value = f.name; inp.setAttribute("aria-label", "New name for " + f.name);
+  const fb = document.createElement("div"); fb.className = "fb";
+  const cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "ghost"; cancel.textContent = "Cancel";
+  const save = document.createElement("button"); save.type = "button"; save.className = "primary"; save.textContent = "Save";
+  cancel.addEventListener("click", renderFoods);
+  save.addEventListener("click", async () => {
+    const name = inp.value.trim();
+    if (!name || name === f.name){ renderFoods(); return; }
+    if (custom.some(x => x.id !== f.id && x.name.toLowerCase() === name.toLowerCase())){
+      $("foodsErr").textContent = `You already have a food called “${name}”.`; return;
+    }
+    save.disabled = true; cancel.disabled = true;
+    try {
+      await api("PATCH", "/api/data", { type: "food", id: f.id, name });
+      entries.forEach(e => { if (e.food === f.name) e.food = name; });
+      if ($("food").value.trim().toLowerCase() === f.name.toLowerCase()) $("food").value = name;
+      f.name = name;
+      refreshList(); syncStateButtons(); updatePreview(); render(); renderFoods();
+    } catch(err){
+      if (err.message === "auth") return;
+      save.disabled = false; cancel.disabled = false;
+      $("foodsErr").textContent = err.status === 409 ? `You already have a food called “${name}”.` : "Couldn’t rename that food. Try again.";
+    }
+  });
+  inp.addEventListener("keydown", ev => { if (ev.key === "Enter"){ ev.preventDefault(); save.click(); } });
+  fb.append(cancel, save); li.append(inp, fb);
+  setTimeout(() => { inp.focus(); inp.select(); }, 0);
+  return li;
+}
+$("foodsBtn").addEventListener("click", () => { renderFoods(); $("foodsDlg").showModal(); });
+$("foodsClose").addEventListener("click", () => $("foodsDlg").close());
+$("foodsDlg").addEventListener("click", ev => { if (ev.target === $("foodsDlg")) $("foodsDlg").close(); });   // tap outside
+
+// ---------- keep "today" and the meal current when the app is left open ----------
+function defaultMeal(){ const hr = new Date().getHours(); return hr < 11 ? "Breakfast" : hr < 15 ? "Lunch" : hr < 21 ? "Dinner" : "Snacks"; }
+let lastToday = todayStr();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (!$("food").value.trim() && !$("grams").value) $("meal").value = defaultMeal();
+  const t = todayStr();
+  if (t === lastToday) return;
+  const wasOnToday = day === lastToday;
+  lastToday = t;
+  if (wasOnToday) goTo(t); else render();   // a past day stays open; the labels and arrows update
+});
+
+$("meal").value = defaultMeal();
 refreshList(); render();
 (async () => {
   // devices that used the older version saved the password; trade it for a sign-in cookie once, then forget it
