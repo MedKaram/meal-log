@@ -41,7 +41,7 @@
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5}
-main{max-width:640px;margin:0 auto;padding:20px 18px 48px}
+main{max-width:640px;margin:0 auto;padding:20px 18px 112px}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--herb);outline-offset:2px}
@@ -58,8 +58,9 @@ button{cursor:pointer}
 .split b{font-weight:600}
 .split .r b{color:var(--raw)} .split .c b{color:var(--cooked)}
 
-.add{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
-.add h2{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:500;font-size:1.05rem;margin:0 0 12px}
+.add{padding:18px}
+.add .dlg-h{margin-bottom:12px}
+.add .addday{color:var(--muted);font-weight:500}
 label.f{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
 input[type=text],input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
@@ -151,7 +152,7 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
 .topbtns{display:flex;gap:8px}
 .textbtn{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:inherit;padding:4px 6px;margin-left:6px;min-height:32px}
 .ghost.danger{border-color:var(--danger);color:var(--danger)}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:15;
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(94px + env(safe-area-inset-bottom,0px));z-index:15;
   display:flex;align-items:center;gap:14px;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);
   border-radius:12px;padding:10px 10px 10px 16px;box-shadow:0 6px 24px rgb(0 0 0 / .25);font-size:.92rem}
 .toast[hidden]{display:none}
@@ -170,6 +171,26 @@ li.frow .fb{display:flex;gap:6px}
 li.frow .fb .ghost{min-height:36px;padding:6px 10px;font-size:.85rem}
 li.frow.editing{grid-template-columns:1fr}
 li.frow.editing .fb{justify-content:flex-end}
+.fab{position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:10;
+  width:60px;height:60px;border-radius:50%;border:0;background:var(--herb);color:var(--herb-ink);
+  display:grid;place-items:center;box-shadow:0 6px 20px rgb(0 0 0 / .28)}
+.fab svg{width:28px;height:28px}
+/* "Log a food" sheet: slides up from the bottom on phones, centred box on wider screens.
+   --kb / --vvh follow the on-screen keyboard (set from visualViewport in the script). */
+dialog.sheet{overflow:auto;overscroll-behavior:contain;max-height:min(90dvh,760px)}
+@media (max-width:639px){
+  dialog.sheet{width:100%;max-width:100%;margin:auto 0 var(--kb,0px);border-radius:20px 20px 0 0;border-bottom:0;
+    max-height:calc(var(--vvh,100dvh) - 24px);padding-bottom:env(safe-area-inset-bottom,0px)}
+}
+@media (prefers-reduced-motion:no-preference){
+  dialog.sheet[open]{animation:sheetUp .22s ease-out}
+  @keyframes sheetUp{from{transform:translateY(32px);opacity:0}}
+}
+.added{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:8px 8px 8px 12px;
+  border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:.9rem}
+.added[hidden]{display:none}
+.added span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.added button{background:none;border:0;color:var(--herb);font-weight:700;text-decoration:underline;padding:6px 8px;min-height:36px}
 </style>
 </head>
 <body>
@@ -206,8 +227,15 @@ li.frow.editing .fb{justify-content:flex-end}
   <div class="readout" aria-live="polite"><span class="num" id="total">0</span><span class="unit">kcal</span></div>
   <div class="macros"><span>Protein <b id="tP">0 g</b></span><span>Carbs <b id="tC">0 g</b></span><span>Fat <b id="tF">0 g</b></span></div>
 
-  <section class="add" aria-labelledby="addH">
-    <h2 id="addH">Log a food</h2>
+  <section class="log" id="log" aria-label="Logged foods"></section>
+  <p class="sync"><span id="sync">Loading…</span><button type="button" class="textbtn" id="signOut">Sign out</button></p>
+</main>
+<button class="fab" id="fab" type="button" aria-label="Log a food">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+<dialog class="sheet" id="logDlg" aria-labelledby="addH">
+  <section class="add">
+    <div class="dlg-h"><h2 id="addH">Log a food<span class="addday" id="addDay"></span></h2><button type="button" class="del" id="logClose" aria-label="Close">×</button></div>
     <label class="f" for="food">Food</label>
     <input type="text" id="food" list="foodlist" placeholder="e.g. White rice, chicken breast" autocomplete="off">
     <datalist id="foodlist"></datalist>
@@ -257,12 +285,10 @@ li.frow.editing .fb{justify-content:flex-end}
       <div><span class="kcal" id="preview">— kcal</span><div class="pmac" id="previewMac"></div></div>
       <button type="button" class="primary" id="addBtn" disabled>Add to log</button>
     </div>
+    <div class="added" id="added" role="status" hidden><span id="addedMsg"></span><button type="button" id="addedUndo">Undo</button></div>
     <div class="err" id="err" role="alert"></div>
   </section>
-
-  <section class="log" id="log" aria-label="Logged foods"></section>
-  <p class="sync"><span id="sync">Loading…</span><button type="button" class="textbtn" id="signOut">Sign out</button></p>
-</main>
+</dialog>
 <div class="toast" id="toast" role="status" hidden><span id="toastMsg"></span><button type="button" id="toastUndo">Undo</button></div>
 <dialog id="foodsDlg" aria-labelledby="foodsH">
   <div class="dlg-in">
@@ -366,7 +392,7 @@ async function load(){
     if (e.message !== "auth") $("sync").textContent = "Couldn’t reach the database. Refresh to try again.";
   }
 }
-function showLogin(msg){ if ($("foodsDlg").open) $("foodsDlg").close(); hideToast(); $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
+function showLogin(msg){ ["foodsDlg", "logDlg"].forEach(id => { if ($(id).open) $(id).close(); }); hideToast(); $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
 $("loginForm").addEventListener("submit", async ev => {
   ev.preventDefault();
   const btn = ev.target.querySelector("button"); btn.disabled = true; $("loginErr").textContent = "";
@@ -451,7 +477,8 @@ function refreshList(){
   $("foodlist").innerHTML = "";
   allFoods().forEach(f => { const o = document.createElement("option"); o.value = f.name; $("foodlist").appendChild(o); });
 }
-function showErr(m){ $("err").textContent = m; if (m) setTimeout(() => { if ($("err").textContent === m) $("err").textContent = ""; }, 6000); }
+// errors show inside the sheet while it is open, otherwise as a toast on the page
+function showErr(m){ if (!$("logDlg").open){ if (m) toast(m); return; } $("err").textContent = m; if (m) setTimeout(() => { if ($("err").textContent === m) $("err").textContent = ""; }, 6000); }
 
 $("food").addEventListener("input", () => {
   forceCustom = false; clearUsda(); $("usdaQ").value = $("food").value.trim();
@@ -467,8 +494,11 @@ $("addBtn").addEventListener("click", async () => {
   entries.push(e);
   $("food").value = ""; $("grams").value = ""; syncStateButtons(); updatePreview(); render();
   $("food").focus();
-  try { await api("POST", "/api/data", { type: "entry", ...e }); }
+  const save = api("POST", "/api/data", { type: "entry", ...e });
+  showAdded(e, save);
+  try { await save; }
   catch(err){
+    if (addedEntry === e) hideAdded();
     if (err.message === "auth") return;
     entries = entries.filter(x => x.id !== e.id); render();
     // put what was typed back, unless the form has been used again since
@@ -479,6 +509,39 @@ $("addBtn").addEventListener("click", async () => {
     showErr(`Couldn’t save “${e.food}”. Check your connection and tap Add again.`);
   }
 });
+
+// ---------- "Log a food" sheet ----------
+function openLog(){ hideAdded(); $("err").textContent = ""; $("logDlg").showModal(); $("food").focus(); }
+$("fab").addEventListener("click", openLog);
+$("logClose").addEventListener("click", () => $("logDlg").close());   // what was typed stays for next time
+$("logDlg").addEventListener("click", ev => { if (ev.target === $("logDlg")) $("logDlg").close(); });   // tap outside
+$("logDlg").addEventListener("close", hideAdded);
+
+// "Added … · Undo" line inside the sheet (a page toast can't show above an open sheet)
+let addedTimer = null, addedEntry = null, addedSave = null;
+function showAdded(e, save){
+  addedEntry = e; addedSave = save;
+  $("addedMsg").textContent = `Added “${e.food}” · ${e.kcal} kcal`;
+  $("added").hidden = false; clearTimeout(addedTimer); addedTimer = setTimeout(hideAdded, 8000);
+}
+function hideAdded(){ $("added").hidden = true; addedEntry = null; addedSave = null; clearTimeout(addedTimer); }
+$("addedUndo").addEventListener("click", async () => {
+  const e = addedEntry, save = addedSave; hideAdded(); if (!e) return;
+  try { await save; } catch(err){ return; }   // the save failed, so it was already taken off the list
+  entries = entries.filter(x => x.id !== e.id); render();
+  try { await api("DELETE", `/api/data?type=entry&id=${encodeURIComponent(e.id)}`); }
+  catch(err){ if (err.message !== "auth"){ entries.push(e); render(); showErr(`Couldn’t undo “${e.food}”. Delete it from the list instead.`); } }
+});
+
+// keep the sheet above the on-screen keyboard (iOS and Android only shrink the visual viewport)
+if (window.visualViewport){
+  const vv = window.visualViewport, rs = document.documentElement.style;
+  const fit = () => {
+    rs.setProperty("--kb", Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + "px");
+    rs.setProperty("--vvh", vv.height + "px");
+  };
+  vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); fit();
+}
 
 // ---------- custom foods + USDA ----------
 const SLOT = { raw: ["rK","rP","rC","rF"], cooked: ["cK","cP","cC","cF"] };
@@ -642,6 +705,7 @@ function render(){
   const label = day === t ? "Today" : day === shift(t,-1) ? "Yesterday" :
     new Date(day + "T12:00").toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" });
   $("dayLabel").textContent = label;
+  $("addDay").textContent = day === t ? "" : " · " + label;
   $("next").disabled = day >= t;
   $("toToday").hidden = day === t;
   $("datePick").max = t; $("datePick").value = day;
@@ -656,7 +720,7 @@ function render(){
   const log = $("log"); log.innerHTML = "";
   if (!list.length){
     const p = document.createElement("p"); p.className = "empty";
-    p.textContent = day === t ? "Nothing logged yet today. Add your first food above." : "Nothing logged on this day.";
+    p.textContent = day === t ? "Nothing logged yet today. Tap + to add your first food." : "Nothing logged on this day.";
     log.appendChild(p); return;
   }
   ["Breakfast","Lunch","Dinner","Snacks"].forEach(m => {
