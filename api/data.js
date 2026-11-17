@@ -59,6 +59,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'unknown type' });
     }
 
+    if (req.method === 'PATCH') {
+      const b = req.body || {};
+      if (!isText(b.id, 64) || !MEALS.includes(b.meal) || !STATES.includes(b.state) || !isNum(b.grams) || !isNum(b.kcal)) {
+        return res.status(400).json({ error: 'bad edit' });
+      }
+      const rows = await sql`UPDATE entries SET meal = ${b.meal}, state = ${b.state}, grams = ${b.grams}, kcal = ${Math.round(b.kcal)}
+                             WHERE id = ${b.id} RETURNING id`;
+      if (!rows.length) return res.status(404).json({ error: 'not found' });
+      return res.status(200).json({ ok: true });
+    }
+
     if (req.method === 'DELETE') {
       const { type, id } = req.query;
       if (!isText(id, 64)) return res.status(400).json({ error: 'bad id' });
@@ -68,7 +79,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    res.setHeader('Allow', 'GET, POST, DELETE');
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE');
     return res.status(405).json({ error: 'method not allowed' });
   } catch (err) {
     console.error(err);
