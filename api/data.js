@@ -1,5 +1,28 @@
 import { neon } from '@neondatabase/serverless';
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+// ---- sign-in (same block in data.js, usda.js and login.js) ----
+// A remembered device holds a cookie derived from APP_PASSWORD.
+// Changing APP_PASSWORD in Vercel signs every device out.
+const COOKIE = 'meal_session';
+const same = (x, y) => { const a = Buffer.from(String(x)), b = Buffer.from(String(y)); return a.length === b.length && timingSafeEqual(a, b); };
+const sessionToken = () => createHmac('sha256', process.env.APP_PASSWORD).update('meal-log-session-v1').digest('base64url');
+function readCookie(req, name) {
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return '';
+}
+function authorized(req) {
+  const pw = process.env.APP_PASSWORD || '';
+  if (!pw) return false;
+  const c = readCookie(req, COOKIE);
+  if (c && same(c, sessionToken())) return true;
+  const h = req.headers['x-app-password'];
+  return !!h && same(h, pw);
+}
+// ----
 
 const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 const STATES = ['raw', 'cooked', 'asis'];
@@ -9,13 +32,6 @@ const isNum = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < 
 const optNum = n => n === null || n === undefined || isNum(n);
 const opt = n => (n === null || n === undefined ? null : n);
 
-function authorized(req) {
-  const expected = process.env.APP_PASSWORD || '';
-  if (!expected) return false;
-  const a = Buffer.from(String(req.headers['x-app-password'] || ''));
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export default async function handler(req, res) {
   if (!authorized(req)) return res.status(401).json({ error: 'unauthorized' });

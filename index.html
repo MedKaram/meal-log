@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meal log</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meal log">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F3F5F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121714" media="(prefers-color-scheme: dark)">
 <script>try{var t=localStorage.getItem("meal-log-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -145,7 +154,7 @@ li.item.editing{display:block;background:var(--surface);border:1px solid var(--h
 <div class="login" id="login">
   <form id="loginForm">
     <h2>Meal log</h2>
-    <p>Enter your app password.</p>
+    <p>Enter your app password. This device will stay signed in.</p>
     <input type="password" id="pw" autocomplete="current-password" aria-label="Password">
     <button class="primary" type="submit">Open</button>
     <div class="err" id="loginErr" role="alert"></div>
@@ -277,7 +286,6 @@ const BASE = B.map(r => ({ name:r[0], raw:r[1], rp:r[2], rc:r[3], rf:r[4],
 
 let entries = [], custom = [];
 let state = "raw", day = todayStr(), forceCustom = false;
-let pw = ""; try { pw = localStorage.getItem("meal-log-pw") || ""; } catch(e){}
 
 function todayStr(d = new Date()){ const z = n => String(n).padStart(2,"0"); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function shift(s, n){ const [y,m,d] = s.split("-").map(Number); return todayStr(new Date(y, m-1, d+n)); }
@@ -300,11 +308,16 @@ const macText = o => o.protein == null ? "" : `P ${Math.round(o.protein)} g · C
 
 // ---------- server ----------
 async function api(method, path, body){
-  const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-app-password": pw },
+  const r = await fetch(path, { method, credentials: "same-origin", headers: { "content-type": "application/json" },
                                 body: body ? JSON.stringify(body) : undefined });
-  if (r.status === 401){ showLogin(pw ? "Wrong password." : ""); throw new Error("auth"); }
+  if (r.status === 401){ showLogin(""); throw new Error("auth"); }
   if (!r.ok){ const e = new Error("http"); e.status = r.status; throw e; }
   return r.json();
+}
+async function signIn(password){
+  const r = await fetch("/api/login", { method: "POST", credentials: "same-origin",
+    headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) });
+  return r.ok;
 }
 async function load(){
   const want = day;
@@ -320,10 +333,14 @@ async function load(){
   }
 }
 function showLogin(msg){ $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
-$("loginForm").addEventListener("submit", ev => {
+$("loginForm").addEventListener("submit", async ev => {
   ev.preventDefault();
-  pw = $("pw").value; try { localStorage.setItem("meal-log-pw", pw); } catch(e){}
-  $("login").classList.remove("show"); load();
+  const btn = ev.target.querySelector("button"); btn.disabled = true; $("loginErr").textContent = "";
+  try {
+    if (await signIn($("pw").value)){ $("pw").value = ""; $("login").classList.remove("show"); load(); }
+    else { $("loginErr").textContent = "Wrong password."; $("pw").select(); }
+  } catch(e){ $("loginErr").textContent = "Couldn’t reach the server. Check your connection."; }
+  finally { btn.disabled = false; }
 });
 async function removeEntry(e){
   entries = entries.filter(x => x.id !== e.id); render();
@@ -608,7 +625,12 @@ function render(){
 const hr = new Date().getHours();
 $("meal").value = hr < 11 ? "Breakfast" : hr < 15 ? "Lunch" : hr < 21 ? "Dinner" : "Snacks";
 refreshList(); render();
-if (pw) load(); else showLogin("");
+(async () => {
+  // devices that used the older version saved the password; trade it for a sign-in cookie once, then forget it
+  let old = ""; try { old = localStorage.getItem("meal-log-pw") || ""; } catch(e){}
+  if (old){ try { await signIn(old); } catch(e){} try { localStorage.removeItem("meal-log-pw"); } catch(e){} }
+  load();
+})();
 </script>
 </body>
 </html>
