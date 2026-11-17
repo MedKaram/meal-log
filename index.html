@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meal log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F5F2; --surface:#FFFFFF; --ink:#18231D; --muted:#5E6B63; --line:#D8DED8;
+  --herb:#2E6A4C; --herb-ink:#FFFFFF; --raw:#B23A5E; --cooked:#A8650F; --danger:#B3261E;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121714; --surface:#1B221E; --ink:#E7ECE8; --muted:#9AA79F; --line:#2D3832;
+    --herb:#6FBF94; --herb-ink:#0E1A13; --raw:#E585A3; --cooked:#E3A453; --danger:#F2867E;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121714; --surface:#1B221E; --ink:#E7ECE8; --muted:#9AA79F; --line:#2D3832;
+  --herb:#6FBF94; --herb-ink:#0E1A13; --raw:#E585A3; --cooked:#E3A453; --danger:#F2867E;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:20px 18px 48px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--herb);outline-offset:2px}
+
+.day{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.day h1{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:500;font-size:1.15rem;margin:0}
+.navbtn{background:none;border:1px solid var(--line);border-radius:999px;width:38px;height:38px;display:grid;place-items:center;font-size:1.1rem}
+.navbtn:disabled{opacity:.35;cursor:default}
+
+.readout{margin:18px 0 6px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.readout .num{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:700;font-size:clamp(64px,17vw,112px);line-height:.9;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.readout .unit{font-size:1.1rem;color:var(--muted)}
+.split{display:flex;gap:16px;color:var(--muted);font-size:.92rem;margin-bottom:26px}
+.split b{font-weight:600}
+.split .r b{color:var(--raw)} .split .c b{color:var(--cooked)}
+
+.add{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+.add h2{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:500;font-size:1.05rem;margin:0 0 12px}
+label.f{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+input[type=text],input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px}
+.seg button{flex:1;border:0;background:transparent;padding:10px 6px;min-height:44px;font-weight:500;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"][data-s="raw"]{background:var(--raw);color:#fff}
+.seg button[aria-pressed="true"][data-s="cooked"]{background:var(--cooked);color:#fff}
+.seg button[aria-pressed="true"][data-s="asis"]{background:var(--herb);color:var(--herb-ink)}
+.seg button:disabled{opacity:.35;cursor:default}
+.hint{font-size:.85rem;color:var(--muted);margin:8px 0 0}
+.preview{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px}
+.preview .kcal{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums}
+.primary{background:var(--herb);color:var(--herb-ink);border:0;border-radius:12px;padding:12px 20px;font-weight:600;min-height:46px}
+.primary:disabled{opacity:.45;cursor:default}
+.ghost{background:none;border:1px solid var(--line);border-radius:10px;padding:9px 14px;min-height:42px;font-weight:500}
+
+.custom{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);display:none}
+.custom.show{display:block}
+.custom p{margin:0 0 10px;font-size:.92rem}
+.custom .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.err{color:var(--danger);font-size:.88rem;margin-top:8px;min-height:0}
+
+.log{margin-top:28px}
+.meal{margin-top:22px}
+.meal-h{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px}
+.meal-h h3{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:500;font-size:1.05rem;margin:0}
+.meal-h span{color:var(--muted);font-variant-numeric:tabular-nums}
+ul{list-style:none;margin:0;padding:0}
+li.item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.item .name{font-weight:500}
+.item .meta{font-size:.85rem;color:var(--muted)}
+.tag{display:inline-block;font-size:.75rem;font-weight:600;padding:1px 8px;border-radius:999px;margin-right:6px}
+.tag.raw{color:var(--raw);border:1px solid var(--raw)}
+.tag.cooked{color:var(--cooked);border:1px solid var(--cooked)}
+.tag.asis{color:var(--herb);border:1px solid var(--herb)}
+.item .k{font-variant-numeric:tabular-nums;font-weight:600}
+.del{background:none;border:0;color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:1.2rem}
+.del:hover{color:var(--danger)}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+.sync{font-size:.8rem;color:var(--muted);text-align:center;margin-top:36px}
+@media (prefers-reduced-motion:no-preference){.readout .num{transition:color .2s}}
+.login{position:fixed;inset:0;background:var(--bg);display:none;place-items:center;padding:24px;z-index:20}
+.login.show{display:grid}
+.login form{width:100%;max-width:340px;display:grid;gap:12px}
+.login h2{font-family:"Bricolage Grotesque","Figtree",system-ui,sans-serif;font-weight:700;font-size:1.8rem;margin:0}
+.login p{margin:0;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="login" id="login">
+  <form id="loginForm">
+    <h2>Meal log</h2>
+    <p>Enter your app password.</p>
+    <input type="password" id="pw" autocomplete="current-password" aria-label="Password">
+    <button class="primary" type="submit">Open</button>
+    <div class="err" id="loginErr" role="alert"></div>
+  </form>
+</div>
+<main>
+  <div class="day">
+    <button class="navbtn" id="prev" aria-label="Previous day">‹</button>
+    <h1 id="dayLabel">Today</h1>
+    <button class="navbtn" id="next" aria-label="Next day">›</button>
+  </div>
+
+  <div class="readout" aria-live="polite"><span class="num" id="total">0</span><span class="unit">kcal</span></div>
+  <div class="split"><span class="r">Weighed raw <b id="tRaw">0</b></span><span class="c">Weighed cooked <b id="tCooked">0</b></span><span>Other <b id="tAsis">0</b></span></div>
+
+  <section class="add" aria-labelledby="addH">
+    <h2 id="addH">Log a food</h2>
+    <label class="f" for="food">Food</label>
+    <input type="text" id="food" list="foodlist" placeholder="e.g. White rice, chicken breast" autocomplete="off">
+    <datalist id="foodlist"></datalist>
+
+    <div class="seg" role="group" aria-label="State when weighed">
+      <button type="button" data-s="raw" aria-pressed="true">Raw / dry</button>
+      <button type="button" data-s="cooked" aria-pressed="false">Cooked</button>
+      <button type="button" data-s="asis" aria-pressed="false">As is</button>
+    </div>
+    <p class="hint" id="stateHint">Pick the state the food was in when you weighed it.</p>
+
+    <div class="row">
+      <div><label class="f" for="grams">Weight (g)</label><input type="number" id="grams" inputmode="decimal" min="0" step="1" placeholder="150"></div>
+      <div><label class="f" for="meal">Meal</label>
+        <select id="meal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snacks</option></select></div>
+    </div>
+
+    <div class="custom" id="custom">
+      <p id="customMsg">This food isn’t in the list yet. Add its calories per 100 g (check the package label or fdc.nal.usda.gov), then save it.</p>
+      <div class="row">
+        <div><label class="f" for="cRaw">kcal / 100 g raw or as is</label><input type="number" id="cRaw" inputmode="decimal" min="0"></div>
+        <div><label class="f" for="cCooked">kcal / 100 g cooked (optional)</label><input type="number" id="cCooked" inputmode="decimal" min="0"></div>
+      </div>
+      <div class="actions">
+                <button type="button" class="ghost" id="saveFood">Save food</button>
+      </div>
+      <p class="hint" id="estNote"></p>
+    </div>
+
+    <div class="preview">
+      <span class="kcal" id="preview">— kcal</span>
+      <button type="button" class="primary" id="addBtn" disabled>Add to log</button>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+  </section>
+
+  <section class="log" id="log" aria-label="Logged foods"></section>
+  <p class="sync" id="sync">Loading…</p>
+</main>
+
+<script>
+// kcal per 100 g: [name, raw/dry, cooked, cooking method]. Approximate USDA reference values.
+const BASE = [
+  ["White rice", 365, 130, "boiled"], ["Brown rice", 370, 123, "boiled"], ["Pasta", 371, 158, "boiled"],
+  ["Quinoa", 368, 120, "boiled"], ["Couscous", 376, 112, "boiled"], ["Pearl barley", 352, 123, "boiled"],
+  ["Rolled oats", 379, 71, "cooked in water"], ["Lentils", 352, 116, "boiled"], ["Chickpeas", 378, 164, "boiled"],
+  ["Black beans", 341, 132, "boiled"], ["Potato", 77, 87, "boiled"], ["Sweet potato", 86, 90, "baked"],
+  ["Chicken breast (skinless)", 120, 165, "roasted"], ["Chicken thigh (skinless)", 121, 176, "roasted"],
+  ["Turkey breast", 114, 147, "roasted"], ["Ground beef 85% lean", 215, 250, "pan-browned"],
+  ["Pork tenderloin", 120, 143, "roasted"], ["Bacon", 417, 541, "pan-fried"], ["Salmon", 142, 182, "baked"],
+  ["Cod", 82, 105, "baked"], ["Shrimp", 85, 99, "boiled"], ["Egg", 143, 155, "hard-boiled"],
+  ["Broccoli", 34, 35, "boiled"], ["Spinach", 23, 23, "boiled"], ["Carrot", 41, 35, "boiled"],
+  ["Onion", 40, 44, "cooked"], ["Mushrooms", 22, 28, "cooked"], ["Zucchini", 17, 15, "cooked"],
+  ["Bell pepper", 26, 28, "cooked"], ["Corn kernels", 86, 96, "boiled"], ["Green peas", 81, 84, "boiled"],
+  ["Firm tofu", 144, null, ""], ["Banana", 89, null, ""], ["Apple", 52, null, ""], ["Avocado", 160, null, ""],
+  ["Blueberries", 57, null, ""], ["Olive oil", 884, null, ""], ["Butter", 717, null, ""],
+  ["Cheddar cheese", 403, null, ""], ["Milk 2%", 50, null, ""], ["Greek yogurt, plain nonfat", 59, null, ""],
+  ["Bread, white", 266, null, ""], ["Bread, whole wheat", 252, null, ""], ["Almonds", 579, null, ""],
+  ["Peanut butter", 588, null, ""]
+].map(([name, raw, cooked, method]) => ({ name, raw, cooked, method, builtin: true }));
+
+
+let entries = [], custom = [], loading = false;
+let state = "raw", day = todayStr();
+let pw = ""; try { pw = localStorage.getItem("meal-log-pw") || ""; } catch(e){}
+
+function todayStr(d = new Date()){ const z = n => String(n).padStart(2,"0"); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
+function shift(s, n){ const [y,m,d] = s.split("-").map(Number); return todayStr(new Date(y, m-1, d+n)); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+const $ = id => document.getElementById(id);
+const allFoods = () => [...BASE, ...custom];
+const findFood = n => { const q = n.trim().toLowerCase(); return q ? allFoods().find(f => f.name.toLowerCase() === q) : null; };
+
+// ---------- server ----------
+async function api(method, path, body){
+  const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-app-password": pw },
+                                body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 401){ showLogin(pw ? "Wrong password." : ""); throw new Error("auth"); }
+  if (!r.ok) throw new Error("http " + r.status);
+  return r.json();
+}
+async function load(){
+  const want = day; loading = true;
+  $("sync").textContent = "Loading… (the first load of the day can take a few seconds)";
+  try {
+    const d = await api("GET", "/api/data?date=" + want);
+    if (want !== day) return;
+    entries = d.entries; custom = d.foods;
+    $("sync").textContent = "Saved to your database";
+    refreshList(); syncStateButtons(); updatePreview(); render();
+  } catch(e){
+    if (e.message !== "auth") $("sync").textContent = "Couldn’t reach the database. Refresh to try again.";
+  } finally { loading = false; }
+}
+function showLogin(msg){ $("login").classList.add("show"); $("loginErr").textContent = msg || ""; $("pw").focus(); }
+$("loginForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  pw = $("pw").value; try { localStorage.setItem("meal-log-pw", pw); } catch(e){}
+  $("login").classList.remove("show"); load();
+});
+async function removeEntry(e){
+  entries = entries.filter(x => x.id !== e.id); render();
+  try { await api("DELETE", `/api/data?type=entry&id=${encodeURIComponent(e.id)}`); }
+  catch(err){ if (err.message !== "auth"){ entries.push(e); render(); showErr("Couldn’t delete that entry. Try again."); } }
+}
+
+// ---------- form ----------
+function setState(s){
+  state = s;
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === s)));
+  updatePreview();
+}
+function syncStateButtons(){
+  const f = findFood($("food").value);
+  const btn = s => document.querySelector(`.seg button[data-s="${s}"]`);
+  if (!f){ ["raw","cooked","asis"].forEach(s => btn(s).disabled = false); $("stateHint").textContent = "Pick the state the food was in when you weighed it."; return; }
+  const hasCooked = f.cooked != null;
+  btn("raw").disabled = !hasCooked; btn("cooked").disabled = !hasCooked; btn("asis").disabled = hasCooked;
+  if (hasCooked){
+    if (state === "asis") setState("raw");
+    $("stateHint").textContent = `Raw: ${f.raw} kcal/100 g · Cooked (${f.method || "cooked"}): ${f.cooked} kcal/100 g`;
+  } else {
+    setState("asis");
+    $("stateHint").textContent = `${f.raw} kcal per 100 g, eaten as is.`;
+  }
+}
+function per100(f, s){ return s === "cooked" ? f.cooked : f.raw; }
+function updatePreview(){
+  const f = findFood($("food").value);
+  const g = parseFloat($("grams").value);
+  const name = $("food").value.trim();
+  $("custom").classList.toggle("show", !!name && !f);
+  if (f && g > 0 && per100(f, state) != null){
+    $("preview").textContent = Math.round(g * per100(f, state) / 100) + " kcal";
+    $("addBtn").disabled = false;
+  } else { $("preview").textContent = "— kcal"; $("addBtn").disabled = true; }
+}
+function refreshList(){
+  $("foodlist").innerHTML = "";
+  allFoods().forEach(f => { const o = document.createElement("option"); o.value = f.name; $("foodlist").appendChild(o); });
+}
+function showErr(m){ $("err").textContent = m; if (m) setTimeout(() => { if ($("err").textContent === m) $("err").textContent = ""; }, 6000); }
+
+$("food").addEventListener("input", () => { syncStateButtons(); updatePreview(); });
+$("grams").addEventListener("input", updatePreview);
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setState(b.dataset.s)));
+
+$("addBtn").addEventListener("click", async () => {
+  const f = findFood($("food").value); const g = parseFloat($("grams").value);
+  if (!f || !(g > 0)) return;
+  const e = { id: uid(), date: day, meal: $("meal").value, food: f.name, state, grams: g,
+              kcal: Math.round(g * per100(f, state) / 100), createdAt: Date.now() };
+  entries.push(e);
+  $("food").value = ""; $("grams").value = ""; syncStateButtons(); updatePreview(); render();
+  $("food").focus();
+  try { await api("POST", "/api/data", { type: "entry", ...e }); }
+  catch(err){ if (err.message !== "auth"){ entries = entries.filter(x => x.id !== e.id); render(); showErr(`Couldn’t save “${e.food}”. Try adding it again.`); } }
+});
+
+$("saveFood").addEventListener("click", async () => {
+  const name = $("food").value.trim(); const r = parseFloat($("cRaw").value); const c = parseFloat($("cCooked").value);
+  if (!name) return;
+  if ($("cRaw").value === "" || !(r >= 0)){ showErr("Enter calories per 100 g for the raw or as-is food."); return; }
+  const f = { type: "food", id: uid(), name, raw: r, cooked: $("cCooked").value !== "" && c >= 0 ? c : null, method: "" };
+  try {
+    await api("POST", "/api/data", f);
+    $("cRaw").value = ""; $("cCooked").value = "";
+    await load();
+  } catch(err){ if (err.message !== "auth") showErr("Couldn’t save that food. Try again."); }
+});
+
+$("prev").addEventListener("click", () => { day = shift(day, -1); entries = []; render(); load(); });
+$("next").addEventListener("click", () => { day = shift(day, 1); entries = []; render(); load(); });
+
+// ---------- render ----------
+function render(){
+  const t = todayStr();
+  const label = day === t ? "Today" : day === shift(t,-1) ? "Yesterday" :
+    new Date(day + "T12:00").toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" });
+  $("dayLabel").textContent = label;
+  $("next").disabled = day >= t;
+
+  const list = entries.filter(e => e.date === day).sort((a,b) => a.createdAt - b.createdAt);
+  const sum = s => list.filter(e => !s || e.state === s).reduce((a,e) => a + e.kcal, 0);
+  $("total").textContent = sum().toLocaleString();
+  $("tRaw").textContent = sum("raw"); $("tCooked").textContent = sum("cooked"); $("tAsis").textContent = sum("asis");
+
+  const log = $("log"); log.innerHTML = "";
+  if (!list.length){
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = day === t ? "Nothing logged yet today. Add your first food above." : "Nothing logged on this day.";
+    log.appendChild(p); return;
+  }
+  ["Breakfast","Lunch","Dinner","Snacks"].forEach(m => {
+    const items = list.filter(e => e.meal === m); if (!items.length) return;
+    const sec = document.createElement("div"); sec.className = "meal";
+    const h = document.createElement("div"); h.className = "meal-h";
+    const h3 = document.createElement("h3"); h3.textContent = m;
+    const st = document.createElement("span"); st.textContent = items.reduce((a,e)=>a+e.kcal,0) + " kcal";
+    h.append(h3, st); sec.appendChild(h);
+    const ul = document.createElement("ul");
+    items.forEach(e => {
+      const li = document.createElement("li"); li.className = "item";
+      const left = document.createElement("div");
+      const nm = document.createElement("div"); nm.className = "name"; nm.textContent = e.food;
+      const meta = document.createElement("div"); meta.className = "meta";
+      const tag = document.createElement("span"); tag.className = "tag " + e.state;
+      tag.textContent = e.state === "raw" ? "raw" : e.state === "cooked" ? "cooked" : "as is";
+      meta.append(tag, document.createTextNode(e.grams + " g"));
+      left.append(nm, meta);
+      const k = document.createElement("span"); k.className = "k"; k.textContent = e.kcal + " kcal";
+      const del = document.createElement("button"); del.className = "del"; del.textContent = "×";
+      del.setAttribute("aria-label", "Delete " + e.food);
+      del.addEventListener("click", () => removeEntry(e));
+      li.append(left, k, del); ul.appendChild(li);
+    });
+    sec.appendChild(ul); log.appendChild(sec);
+  });
+}
+
+
+const h = new Date().getHours();
+$("meal").value = h < 11 ? "Breakfast" : h < 15 ? "Lunch" : h < 21 ? "Dinner" : "Snacks";
+refreshList(); render();
+if (pw) load(); else showLogin("");
+</script>
+</body>
+</html>
